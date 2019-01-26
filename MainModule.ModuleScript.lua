@@ -23,77 +23,37 @@ local function Split( String, Pattern )
 	
 end
 
--- Table of characters to escape for use in string.gsub
-local Pattern_Escape = {
-	
-	["("] = "%(",
-	
-	[")"] = "%)",
-	
-	["."] = "%.",
-	
-	["%"] = "%%",
-	
-	["+"] = "%+",
-	
-	["-"] = "%-",
-	
-	["*"] = "%*",
-	
-	["?"] = "%?",
-	
-	["["] = "%[",
-	
-	["]"] = "%]",
-	
-	["^"] = "%^",
-	
-	["$"] = "%$",
-	
-	["\0"] = "%z"
-	
-}
-
--- Makes a string safe for use in string.gsub
-local function PatternSafe( Str )
-	
-	return Str:gsub( ".", Pattern_Escape )
-	
-end
-
-local min, max, abs, floor, ceil = math.min, math.max, math.abs, math.floor, math.ceil
--- Pre-made math functions for use in equations
 local LuaMathFuncs = {
 	
-	Round = function ( Num, DecimalsPoints )
+	round = function ( Num, DecimalsPoints )
 	
 		local Mult = 10 ^ ( DecimalsPoints or 0 )
 		
-		return floor( Num * Mult + 0.5 ) / Mult
+		return math.floor( Num * Mult + 0.5 ) / Mult
 	
 	end,
 	
-	Truncate = function ( Num, DecimalsPoints )
+	truncate = function ( Num, DecimalsPoints )
 	
 		local Mult = 10 ^ ( DecimalsPoints or 0 )
 		
-		local FloorOrCeil = Num < 0 and ceil or floor
+		local FloorOrCeil = Num < 0 and math.ceil or math.floor
 	
 		return FloorOrCeil( Num * Mult ) / Mult
 	
 	end,
 
-	Approach = function ( Num, Target, Inc )
+	approach = function ( Num, Target, Inc )
 	
-		Inc = abs( Inc )
+		Inc = math.abs( Inc )
 	
 		if ( Num < Target ) then
 	
-			return min( Num + Inc, Target )
+			return math.min( Num + Inc, Target )
 	
 		elseif ( Num > Target ) then
 	
-			return max( Num - Inc, Target )
+			return math.max( Num - Inc, Target )
 	
 		end
 	
@@ -103,73 +63,119 @@ local LuaMathFuncs = {
 	
 }
 
-local oldTonumber = tonumber
-
-local Huge, Zero = tostring( math.huge ), tostring( 0 / 0 )
--- Allows 0/0 and math.huge and such to work
-local tonumber = function ( String )
+function MapArgs( Nums, Args )
 	
-	if String == Huge then
+	for a = 1, #Nums do
 		
-		return math.huge
-		
-	elseif String == Zero then
-		
-		return 0/0
+		if type( Nums[ a ] ) == "table" then
+			
+			Nums[ a ] = MapArgs( Nums[ a ], Args )
+			
+		elseif Args[ Nums[ a ] ] then
+			
+			Nums[ a ] = Args[ Nums[ a ] ]
+			
+		end
 		
 	end
 	
-	return oldTonumber( String )
+	return Nums
 	
 end
--- The following are ran in order, such that * runs before /
-local Operators = {
-	-- Calculates brackets and user/math/pre-made functions
-	{ "%w*%b()", "(%w*)(%b())", function ( LocalVars, LocalFuncs, Func, Args )
+
+function ToNumber( Nums, LocalFuncs )
+	
+	local a = 1
+	
+	while a <= #Nums do
 		
-		Args = Args:sub( 2, -2 )
-		-- If Func is "", it's just a bracket to calculate
-		if Func == "" then
+		if type( Nums[ a ] ) == "table" then
 			
-			return Calculate( Args, true, LocalVars, LocalFuncs )
+			local Prev = Nums[ a - 1 ]
 			
-		end
-		
-		local Func, Args = LocalFuncs[ Func ] or LuaMathFuncs[ Func ] or math[ Func ], Split( Args, "%," )
-		
-		for a = 1, #Args do
-			
-			Args[ a ] = Calculate( Args[ a ], true, LocalVars, LocalFuncs )
-			
-		end
-		
-		if type( Func ) == "table" then
-			
-			local LocalFunc = Func[ 1 ]
-			
-			for a = 2, #Func do
+			if Prev then
 				
-				if not Args[ a - 1 ] then break end
+				if type( Prev ) == "number" then
+					
+					Nums[ a - 1 ] = Nums[ a - 1 ] * ToNumber( Nums[ a ], LocalFuncs )
+					
+					table.remove( Nums, a )
+					
+				elseif type( Prev ) == "function" or LocalFuncs[ Prev ] then
+					
+					local Args = { { } }
+					
+					for b = 1, #Nums[ a ] do
+						
+						if Nums[ a ][ b ] == "," then
+							
+							Args[ #Args ] = ToNumber( Args[ #Args ] )
+							
+							Args[ #Args + 1 ] = { }
+							
+						else
+							
+							Args[ #Args ][ #Args[ #Args ] + 1 ] = Nums[ a ][ b ]
+							
+						end
+						
+					end
+					
+					Args[ #Args ] = ToNumber( Args[ #Args ], LocalFuncs )
+					
+					if type( Prev ) == "function" then
+						
+						Nums[ a - 1 ] = Prev( unpack( Args ) )
+						
+					else
+						
+						local MappedArgs = { }
+						
+						for a = 1, #LocalFuncs[ Prev ][ 2 ] do
+							
+							MappedArgs[ LocalFuncs[ Prev ][ 2 ][ a ] ] = Args[ a ]
+							
+						end
+						
+						local Func = MapArgs( LocalFuncs[ Prev ][ 1 ], MappedArgs )
+						
+						Nums[ a - 1 ] = ToNumber( Func, LocalFuncs )
+						
+					end
+					
+					table.remove( Nums, a )
+					
+				else
+					
+					Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs )
+					
+					a = a + 1
+					
+				end
 				
-				LocalFunc = LocalFunc:gsub( PatternSafe( Func[ a ] ), Args[ a - 1 ] )
+			else
+				
+				Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs )
+				
+				a = a + 1
 				
 			end
 			
-			return Calculate( LocalFunc, true, LocalVars, LocalFuncs )
+		else
 			
-		elseif type( Func ) == "function" then
-			
-			return Func( unpack( Args ) )
+			a = a + 1
 			
 		end
 		
-	end },
-	-- Handles number!
-	{ "%!", "(%w*%.*%w*)%!", function ( LocalVars, LocalFuncs, x )
+	end
+	
+	a = 1
+	
+	while a <= #Nums do
 		
-		local x = tonumber( x )
-		
-		if x then
+		if Nums[ a ] == "!" then
+			
+			local x = Nums[ a - 1 ]
 			
 			local Total = 1
 			
@@ -181,145 +187,242 @@ local Operators = {
 				
 			end
 			
-			return Total
+			Nums[ a - 1 ] = Total
 			
-		end
-		
-	end },
-	-- Handles number^number
-	{ "%^", "([-]?%w*%.*%w*)%^([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x ^ y end
-		
-	end },
-	-- Handles number%number
-	{ "%%", "([-]?%w*%.*%w*)%%([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x % y end
-		
-	end },
-	-- Handles number*number
-	{ "%*", "([-]?%w*%.*%w*)%*([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x * y end
-		
-	end },
-	-- Handles number/number
-	{ "%/", "([-]?%w*%.*%w*)%/([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x / y end
-		
-	end },
-	-- Handles number+number
-	{ "%+", "([-]?%w*%.*%w*)%+([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x + y end
-		
-	end },
-	-- Handles number-number
-	{ "%-", "([-]?%w*%.*%w*)%-([-]?%w*%.*%w*)", function ( LocalVars, LocalFuncs, x, y )
-		
-		local x, y = tonumber( x ), tonumber( y )
-		
-		if x and y then return x - y end
-		
-	end }
-	
-}
--- Formula is the string to interpret
--- Recursion is a bool, true means it's called itself and will not check for user variables / functions being defined, don't set this yourself
--- LocalVars is a table of user defined variables ( "a=1" ) in the form [ Name ] = Value
--- LocalFuncs is a table of user defined functions ( "a(x,y)=x*y" ) in the form [ Name ( "a" ) ] = { Function ( The function as a string such that "a(x,y)=x*y" is "x*y" ), Arguments...( The arguments required for the function as a table of strings such that "a(x,y)=x*y" is "x", "y" } :. "a(x,y)=x*y" is [ a ] = { "x*y", "x", "y" }
-function Calculate( Formula, Recursion, LocalVars, LocalFuncs )
-	
-	local Num = tonumber( Formula )
-	
-	if Num then return Num end
-	
-	local LocalVars, LocalFuncs = LocalVars or { }, LocalFuncs or { }
-	
-	-- Handle Local Variables / Functions
-	if Recursion == nil then
-		
-		-- Get rid of any whitespace
-		Formula = Formula:gsub( "%s+", "" )
-		-- Check if the user is defining any variables or functions
-		if Formula:find("%;") then
-			-- Split the string into variables/functions and the actual expression
-            local LastSplit = Formula:reverse( ):find( ";" )
+			table.remove( Nums, a )
 			
-			local Locals
+		else
 			
-            Formula, Locals = Formula:sub( -LastSplit + 1 ), Split( Formula:sub( 1, -LastSplit - 1 ), "%;" )
-			-- Iterates through the user defined variables / functions and interpret them
-			for a = 1, #Locals do
-				
-				local Name, Value = Locals[ a ]:match( "(.+)=(.+)" )
-				
-				if not Name then error( "Invalid local function/variable - " .. Locals[ a ] ) end
-				
-				local FuncName, Args = Name:match( "(%a+)(%b())" )
-				
-				if FuncName then
-					
-					Args = Split( Args:sub( 2, -2 ), "%," )
-					
-					LocalFuncs[ FuncName ] = { Value, unpack( Args ) }
-					
-				else
-					
-					LocalVars[ Name ] = Calculate( Value, true, LocalVars, LocalFuncs )
-					
-				end
-				
-			end
-			
-		end
-		
-	end
-	-- Replaces any characters that match a user variable or math variable
-	Formula = Formula:gsub( "(%w+)(.?)", function ( Var, Next )
-		
-		if Next ~= "(" and ( LocalVars[ Var ] or type( math[ Var ] ) == "number" ) then
-			
-			return ( LocalVars[ Var ] or math[ Var ] ) .. Next
-			
-		end
-		
-	end )
-	-- Handles operators
-	for a = 1, #Operators do
-		
-		if Formula:find( Operators[ a ][ 1 ] ) then
-			
-			for Word in Formula:gmatch( Operators[ a ][ 1 ] ) do
-				
-				Formula = Formula:gsub( Operators[ a ][ 2 ], function ( ... )
-					
-					local Ret = Operators[ a ][ 3 ]( LocalVars, LocalFuncs, ... )
-					
-					return Ret
-					
-				end, 1 )
-				
-			end
+			a = a + 1
 			
 		end
 		
 	end
 	
-	return tonumber( Formula ) or error( "Invalid formula - " .. Formula )
+	a = 1
+	
+	while a <= #Nums do
+		
+		if Nums[ a ] == "^" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] ^ Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		else
+			
+			a = a + 1
+			
+		end
+		
+	end
+	
+	a = 1
+	
+	while a <= #Nums do
+		
+		if Nums[ a ] == "%" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] % Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		else
+			
+			a = a + 1
+			
+		end
+		
+	end
+	
+	a = 1
+	
+	while a <= #Nums do
+		
+		if Nums[ a ] == "*" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] * Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		elseif Nums[ a ] == "/" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] / Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		else
+			
+			a = a + 1
+			
+		end
+		
+	end
+	
+	a = 1
+	
+	while a <= #Nums do
+		
+		if Nums[ a ] == "+" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] + Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		elseif Nums[ a ] == "-" then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] - Nums[ a + 1 ]
+			
+			table.remove( Nums, a )
+			
+			table.remove( Nums, a )
+			
+		elseif a ~= 1 and Nums[ a ] < 0 then
+			
+			Nums[ a - 1 ] = Nums[ a - 1 ] + Nums[ a ]
+			
+			table.remove( Nums, a )
+			
+		else
+			
+			a = a + 1
+			
+		end
+		
+	end
+	
+	return Nums[ 1 ]
 	
 end
 
-return Calculate
+function Interpret( Formula, LocalVars )
+	
+	local Ins = { { } }
+	
+	local Var
+	
+	for M1, M2 in string.gmatch( Formula, "(-?%d*%.?%d*)(%D?)" ) do
+		
+		if Var then
+			
+			Var = Var .. M1
+			
+		elseif M1 ~= "" then
+			
+			Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = tonumber( M1 )
+			
+		end
+		
+		if M2 == "(" then
+			
+			if Var then
+				
+				Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = LocalVars[ Var ] or math[ Var ] or LuaMathFuncs[ Var ] or Var
+				
+				Var = nil
+				
+			end
+			
+			local In = { }
+			
+			Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = In
+			
+			Ins[ #Ins + 1 ] = In
+			
+		elseif M2 == ")" then
+			
+			if Var then
+				
+				Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = LocalVars[ Var ] or math[ Var ] or LuaMathFuncs[ Var ] or Var
+				
+				Var = nil
+				
+			end
+			
+			Ins[ #Ins ] = nil
+			
+		elseif M2:find("%W") then
+			
+			if Var then
+				
+				Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = LocalVars[ Var ] or math[ Var ] or LuaMathFuncs[ Var ] or Var
+				
+				Var = nil
+				
+			end
+			
+			Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = M2
+			
+		elseif M2 ~= "" then
+			
+			Var = Var and ( Var .. M2 ) or M2
+			
+		end
+		
+	end
+	
+	if Var then
+		
+		Ins[ #Ins ][ #Ins[ #Ins ] + 1 ] = LocalVars[ Var ] or math[ Var ] or LuaMathFuncs[ Var ] or Var
+		
+	end
+	
+	return Ins[ 1 ]
+	
+end
+
+return function ( Formula, LocalVars, LocalFuncs )
+	
+	Formula = Formula:gsub( "%s+", "" )
+	
+	if tonumber( Formula ) then return tonumber( Formula ) end
+	
+	local LocalVars, LocalFuncs = LocalVars or { }, LocalFuncs or { }
+	
+	if Formula:find("%;") then
+		-- Split the string into variables/functions and the actual expression
+        local LastSplit = Formula:reverse( ):find( ";" )
+		
+		local Locals
+		
+        Formula, Locals = Formula:sub( -LastSplit + 1 ), Split( Formula:sub( 1, -LastSplit - 1 ), "%;" )
+		-- Iterates through the user defined variables / functions and interpret them
+		for a = 1, #Locals do
+			
+			local Name, Value = Locals[ a ]:match( "(.+)=(.+)" )
+			
+			if not Name then error( "Invalid local function/variable - " .. Locals[ a ] ) end
+			
+			local FuncName, Args = Name:match( "(%w+)(%b())" )
+			
+			if FuncName then
+				
+				Args = Split( Args:sub( 2, -2 ), "%," )
+				
+				LocalFuncs[ FuncName ] = { Interpret( Value, LocalVars ), Args }
+				
+			else
+				
+				LocalVars[ Name ] = ToNumber( Interpret( Value, LocalVars ), LocalFuncs )
+				
+			end
+			
+		end
+		
+	end
+	
+	local Result = ToNumber( Interpret( Formula, LocalVars ), LocalFuncs )
+	
+	return type( Result ) == "number" and Result or error( "Invalid formula - " .. Formula )
+	
+end
