@@ -1,3 +1,5 @@
+local ToString = require( 2789644632 )
+
 -- Splits a string on a certain pattern
 local function Split( String, Pattern )
 	
@@ -83,7 +85,7 @@ function MapArgs( Nums, Args )
 	
 end
 
-function ToNumber( Nums, LocalFuncs )
+function ToNumber( Nums, LocalFuncs, Attempt )
 	
 	local a = 1
 	
@@ -127,6 +129,10 @@ function ToNumber( Nums, LocalFuncs )
 						
 						Nums[ a - 1 ] = Prev( unpack( Args ) )
 						
+					elseif type( LocalFuncs[ Prev ] ) == "number" then
+						
+						Nums[ a - 1 ] = LocalFuncs[ Prev ]
+						
 					else
 						
 						local MappedArgs = { }
@@ -139,7 +145,7 @@ function ToNumber( Nums, LocalFuncs )
 						
 						local Func = MapArgs( LocalFuncs[ Prev ][ 1 ], MappedArgs )
 						
-						Nums[ a - 1 ] = ToNumber( Func, LocalFuncs )
+						Nums[ a - 1 ] = ToNumber( Func, LocalFuncs, Attempt )
 						
 					end
 					
@@ -147,7 +153,7 @@ function ToNumber( Nums, LocalFuncs )
 					
 				else
 					
-					Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs )
+					Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs, Attempt )
 					
 					a = a + 1
 					
@@ -155,7 +161,7 @@ function ToNumber( Nums, LocalFuncs )
 				
 			else
 				
-				Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs )
+				Nums[ a ] = ToNumber( Nums[ a ], LocalFuncs, Attempt )
 				
 				a = a + 1
 				
@@ -173,7 +179,7 @@ function ToNumber( Nums, LocalFuncs )
 	
 	while a <= #Nums do
 		
-		if Nums[ a ] == "!" then
+		if Nums[ a ] == "!" and type( Nums[ a - 1 ] ) == "number" then
 			
 			local x = Nums[ a - 1 ]
 			
@@ -203,7 +209,7 @@ function ToNumber( Nums, LocalFuncs )
 	
 	while a <= #Nums do
 		
-		if Nums[ a ] == "^" then
+		if Nums[ a ] == "^" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] ^ Nums[ a + 1 ]
 			
@@ -223,7 +229,7 @@ function ToNumber( Nums, LocalFuncs )
 	
 	while a <= #Nums do
 		
-		if Nums[ a ] == "%" then
+		if Nums[ a ] == "%" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] % Nums[ a + 1 ]
 			
@@ -243,7 +249,7 @@ function ToNumber( Nums, LocalFuncs )
 	
 	while a <= #Nums do
 		
-		if Nums[ a ] == "*" then
+		if Nums[ a ] == "*" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] * Nums[ a + 1 ]
 			
@@ -251,7 +257,7 @@ function ToNumber( Nums, LocalFuncs )
 			
 			table.remove( Nums, a )
 			
-		elseif Nums[ a ] == "/" then
+		elseif Nums[ a ] == "/" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] / Nums[ a + 1 ]
 			
@@ -271,7 +277,7 @@ function ToNumber( Nums, LocalFuncs )
 	
 	while a <= #Nums do
 		
-		if Nums[ a ] == "+" then
+		if Nums[ a ] == "+" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] + Nums[ a + 1 ]
 			
@@ -279,7 +285,7 @@ function ToNumber( Nums, LocalFuncs )
 			
 			table.remove( Nums, a )
 			
-		elseif Nums[ a ] == "-" then
+		elseif Nums[ a ] == "-" and type( Nums[ a - 1 ] ) == "number" and type( Nums[ a + 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] - Nums[ a + 1 ]
 			
@@ -287,7 +293,7 @@ function ToNumber( Nums, LocalFuncs )
 			
 			table.remove( Nums, a )
 			
-		elseif a ~= 1 and Nums[ a ] < 0 then
+		elseif a ~= 1 and type( Nums[ a ] ) == "number" and Nums[ a ] < 0 and type( Nums[ a - 1 ] ) == "number" then
 			
 			Nums[ a - 1 ] = Nums[ a - 1 ] + Nums[ a ]
 			
@@ -301,7 +307,51 @@ function ToNumber( Nums, LocalFuncs )
 		
 	end
 	
-	return Nums[ 1 ]
+	if Attempt then
+		
+		return #Nums == 1 and Nums[ 1 ] or Nums
+		
+	elseif #Nums == 1 then
+		
+		return Nums[ 1 ]
+		
+	else
+		
+		local Invalid = ""
+		
+		for a = 1, #Nums do
+			
+			if type( Nums[ a ] ) ~= "number" and not Nums[ a ]:find( "%W" ) then
+				
+				Invalid = Invalid .. Nums[ a ] .. ", "
+				
+			end
+			
+		end
+		
+		if Invalid ~= "" then
+			
+			error( "Unknown variable(s)/function(s) - " .. Invalid:sub( 1, -3 ) )
+			
+		end
+		
+		for a = 1, #Nums do
+			
+			if type( Nums[ a ] ) == "string" and Nums[ a ]:find( "%W" ) then
+				
+				Invalid = Invalid .. Nums[ a ] .. ", "
+				
+			end
+			
+		end
+		
+		if Invalid ~= "" then
+			
+			error( "Invalid operator(s) - " .. Invalid:sub( 1, -3 ) )
+			
+		end
+		
+	end
 	
 end
 
@@ -383,11 +433,11 @@ end
 
 return function ( Formula, LocalVars, LocalFuncs )
 	
-	Formula = Formula:gsub( "%s+", "" )
-	
 	if tonumber( Formula ) then return tonumber( Formula ) end
 	
 	local LocalVars, LocalFuncs = LocalVars or { }, LocalFuncs or { }
+	
+	Formula = Formula:gsub( "%s+", "" )
 	
 	if Formula:find("%;") then
 		-- Split the string into variables/functions and the actual expression
@@ -409,9 +459,19 @@ return function ( Formula, LocalVars, LocalFuncs )
 				
 				Args = Split( Args:sub( 2, -2 ), "%," )
 				
-				LocalFuncs[ FuncName ] = { Interpret( Value, LocalVars ), Args }
+				local Func = ToNumber( Interpret( Value, LocalVars ), LocalFuncs, true )
+				
+				LocalFuncs[ FuncName ] = type( Func ) == "number" and Func or { Func, Args }
 				
 			else
+				
+				local Ran, Result = pcall( ToNumber, Interpret( Value, LocalVars ), LocalFuncs )
+				
+				if not Ran then
+					
+					error( "Local variable " .. Name .. " could not be calculated\n" .. Result:sub( -Result:reverse( ):find( ":" ) + 2 ) )
+					
+				end
 				
 				LocalVars[ Name ] = ToNumber( Interpret( Value, LocalVars ), LocalFuncs )
 				
@@ -421,8 +481,14 @@ return function ( Formula, LocalVars, LocalFuncs )
 		
 	end
 	
-	local Result = ToNumber( Interpret( Formula, LocalVars ), LocalFuncs )
+	local Ran, Result = pcall( ToNumber, Interpret( Formula, LocalVars ), LocalFuncs )
 	
-	return type( Result ) == "number" and Result or error( "Invalid formula - " .. Formula )
+	if not Ran then
+		
+		error( Result:sub( -Result:reverse( ):find( ":" ) + 2 ) )
+		
+	end
+	
+	return type( Result ) == "number" and Result or error( "Formula could not be calculated" )
 	
 end
