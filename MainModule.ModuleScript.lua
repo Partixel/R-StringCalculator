@@ -1,30 +1,5 @@
 local ToString = require( 2789644632 )
 
--- Splits a string on a certain pattern
-local function Split( String, Pattern )
-	
-	local Result = { }
-	
-	local From = 1
-	
-	local delim_from, delim_to = String:find( Pattern, From  )
-	
-	while delim_from do
-		
-		Result[ #Result + 1 ] = String:sub( From , delim_from - 1 )
-		
-		From  = delim_to + 1
-		
-		delim_from, delim_to = String:find( Pattern, From  )
-		
-	end
-	
-	Result[ #Result + 1 ] = String:sub( From  )
-	
-	return Result
-	
-end
-
 local LuaMathFuncs = {
 	
 	round = function ( Num, DecimalsPoints )
@@ -445,7 +420,7 @@ return function ( Formula, LocalVars, LocalFuncs )
 		
 		local Locals
 		
-        Formula, Locals = Formula:sub( -LastSplit + 1 ), Split( Formula:sub( 1, -LastSplit - 1 ), "%;" )
+        Formula, Locals = Formula:sub( -LastSplit + 1 ), string.split( Formula:sub( 1, -LastSplit - 1 ), ";" )
 		-- Iterates through the user defined variables / functions and interpret them
 		for a = 1, #Locals do
 			
@@ -457,7 +432,7 @@ return function ( Formula, LocalVars, LocalFuncs )
 			
 			if FuncName then
 				
-				Args = Split( Args:sub( 2, -2 ), "%," )
+				Args = string.split( Args:sub( 2, -2 ), "," )
 				
 				local Func = ToNumber( Interpret( Value, LocalVars ), LocalFuncs, true )
 				
