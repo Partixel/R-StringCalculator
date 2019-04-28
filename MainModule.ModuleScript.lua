@@ -448,7 +448,7 @@ return function ( Formula, LocalVars, LocalFuncs )
 					
 				end
 				
-				LocalVars[ Name ] = ToNumber( Interpret( Value, LocalVars ), LocalFuncs )
+				LocalVars[ Name ] = Result
 				
 			end
 			
