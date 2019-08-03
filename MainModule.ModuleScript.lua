@@ -40,15 +40,15 @@ local LuaMathFuncs = {
 
 function MapArgs( Nums, Args )
 	
-	for a = 1, #Nums do
+	for _, Num in ipairs( Nums) do
 		
-		if type( Nums[ a ] ) == "table" then
+		if type( Num ) == "table" then
 			
-			Nums[ a ] = MapArgs( Nums[ a ], Args )
+			Num = MapArgs( Num, Args )
 			
-		elseif Args[ Nums[ a ] ] then
+		elseif Args[ Num ] then
 			
-			Nums[ a ] = Args[ Nums[ a ] ]
+			Num = Args[ Num ]
 			
 		end
 		
@@ -80,9 +80,9 @@ function ToNumber( Nums, LocalFuncs, Attempt )
 					
 					local Args = { { } }
 					
-					for b = 1, #Nums[ a ] do
+					for _, Arg in ipairs( Nums[ a ] ) do
 						
-						if Nums[ a ][ b ] == "," then
+						if Arg == "," then
 							
 							Args[ #Args ] = ToNumber( Args[ #Args ] )
 							
@@ -90,7 +90,7 @@ function ToNumber( Nums, LocalFuncs, Attempt )
 							
 						else
 							
-							Args[ #Args ][ #Args[ #Args ] + 1 ] = Nums[ a ][ b ]
+							Args[ #Args ][ #Args[ #Args ] + 1 ] = Arg
 							
 						end
 						
@@ -110,9 +110,9 @@ function ToNumber( Nums, LocalFuncs, Attempt )
 						
 						local MappedArgs = { }
 						
-						for a = 1, #LocalFuncs[ Prev ][ 2 ] do
+						for _, Func in ipairs( LocalFuncs[ Prev ][ 2 ] ) do
 							
-							MappedArgs[ LocalFuncs[ Prev ][ 2 ][ a ] ] = Args[ a ]
+							MappedArgs[ Func[ a ] ] = Args[ a ]
 							
 						end
 						
@@ -292,11 +292,11 @@ function ToNumber( Nums, LocalFuncs, Attempt )
 		
 		local Invalid = ""
 		
-		for a = 1, #Nums do
+		for _, Num in ipairs( Nums ) do
 			
-			if type( Nums[ a ] ) ~= "number" and not Nums[ a ]:find( "%W" ) then
+			if type( Num ) ~= "number" and not Num:find( "%W" ) then
 				
-				Invalid = Invalid .. Nums[ a ] .. ", "
+				Invalid = Invalid .. Num .. ", "
 				
 			end
 			
@@ -308,11 +308,11 @@ function ToNumber( Nums, LocalFuncs, Attempt )
 			
 		end
 		
-		for a = 1, #Nums do
+		for _, Num in ipairs( Nums )do
 			
-			if type( Nums[ a ] ) == "string" and Nums[ a ]:find( "%W" ) then
+			if type( Num ) == "string" and Num:find( "%W" ) then
 				
-				Invalid = Invalid .. Nums[ a ] .. ", "
+				Invalid = Invalid .. Num .. ", "
 				
 			end
 			
@@ -420,11 +420,11 @@ return function ( Formula, LocalVars, LocalFuncs )
 		
         Formula, Locals = Formula:sub( -LastSplit + 1 ), string.split( Formula:sub( 1, -LastSplit - 1 ), ";" )
 		-- Iterates through the user defined variables / functions and interpret them
-		for a = 1, #Locals do
+		for _, Local in ipairs( Locals ) do
 			
-			local Name, Value = Locals[ a ]:match( "(.+)=(.+)" )
+			local Name, Value = Local:match( "(.+)=(.+)" )
 			
-			if not Name then error( "Invalid local function/variable - " .. Locals[ a ] ) end
+			if not Name then error( "Invalid local function/variable - " .. Local ) end
 			
 			local FuncName, Args = Name:match( "(%w+)(%b())" )
 			
