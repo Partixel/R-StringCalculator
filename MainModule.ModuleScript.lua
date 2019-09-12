@@ -1,3 +1,5 @@
+script.Name = "StringCalculator"
+
 local LuaMathFuncs = {
 	
 	round = function ( Num, DecimalsPoints )
