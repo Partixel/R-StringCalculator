@@ -1,3 +1,5 @@
+-- Copyright (C) 2020  Nick (Partixel)
+
 script.Name = "StringCalculator"
 
 local LuaMathFuncs = {
